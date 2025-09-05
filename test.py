@@ -1,5 +1,7 @@
 from customtkinter import *
 from tkinter.messagebox import *
+from threading import Thread
+from socket import *
 from json import load,dump
 
 app = CTk()
@@ -7,6 +9,23 @@ app.title('mohamed screen')
 app.geometry('1920x1080')
 
 _message_man = StringVar(app)
+on_users = []
+
+def on():
+    Thread(target=get_online_users,daemon=True).start()
+
+def get_online_users():
+    sock = socket(AF_INET,SOCK_DGRAM)
+    sock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+    sock.bind(('',2222))
+    
+    payloads = sock.recvfrom(100)
+    if payloads[0].decode().strip() == 'USER':
+        print(payloads[0].decode().strip())
+        on_users.append(payloads)
+    
+        for users in on_users:
+            CTkLabel(online,text=users)
 
 def set_user():
     with open('userinfo.json','w') as conf:
@@ -28,8 +47,14 @@ def send_message():
     CTkLabel(chats_frame,text=f'{get_user()}:{chat_box.get().strip()}',font=('Arial',22)).pack(anchor='nw',padx=10,pady=10)
     _message_man.set('')
 
+def _on_mouse_wheel(event):
+    if event.num == 4:   # scroll up
+        chats_frame._parent_canvas.yview_scroll(-3, "units")
+    elif event.num == 5: # scroll down
+        chats_frame._parent_canvas.yview_scroll(3, "units")
+
 def main():
-    global chats_frame,chat_box
+    global chats_frame,chat_box,online
     toptab = CTkTabview(app)
     toptab.pack(fill='both',expand=True)
 
@@ -39,10 +64,9 @@ def main():
     CTkLabel(home,text=f'Hi, {get_user()}',font=('Arial',33)).pack(pady=30)
     chats_frame = CTkScrollableFrame(home,fg_color='grey',width=1990,height=700)
     chats_frame.pack(padx=0, pady=5,fill="both", expand=True)
-    canvas = chats_frame._parent_canvas
-    canvas.bind("<Enter>", lambda e: canvas.focus_set())
-    canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))  # scroll up
-    canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))   # scroll down
+
+    chats_frame.bind_all("<Button-4>", _on_mouse_wheel)
+    chats_frame.bind_all("<Button-5>", _on_mouse_wheel)
 
     chat_box = CTkEntry(home, font=('Arial',22), width=1000, height=50,textvariable=_message_man)
     chat_box.pack(side="left", fill="x", expand=True, padx=(0,10))
@@ -73,6 +97,5 @@ with open('userinfo.json') as conf:
         submit = CTkButton(first_frame,width=200,height=50,text='Continue',font=('Arial',22),fg_color='grey',command=set_user)
         submit.pack(pady=20)
 conf.close()
-
-
+on()
 app.mainloop()
