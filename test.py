@@ -9,23 +9,18 @@ app.title('mohamed screen')
 app.geometry('1920x1080')
 
 _message_man = StringVar(app)
-on_users = []
-
-def on():
-    Thread(target=get_online_users,daemon=True).start()
 
 def get_online_users():
+    global on_users
+    on_users = []
     sock = socket(AF_INET,SOCK_DGRAM)
     sock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
-    sock.bind(('',2222))
-    
-    payloads = sock.recvfrom(100)
-    if payloads[0].decode().strip() == 'USER':
-        print(payloads[0].decode().strip())
-        on_users.append(payloads)
-    
-        for users in on_users:
-            CTkLabel(online,text=users)
+    sock.bind(('127.0.0.1',2222))
+
+    while True:
+        payloads = sock.recvfrom(100)
+        if payloads:
+            on_users.append(payloads[0].decode().strip())
 
 def set_user():
     with open('userinfo.json','w') as conf:
@@ -52,6 +47,37 @@ def _on_mouse_wheel(event):
         chats_frame._parent_canvas.yview_scroll(-3, "units")
     elif event.num == 5: # scroll down
         chats_frame._parent_canvas.yview_scroll(3, "units")
+
+shown_users = set()
+user_positions = [0, 0]  # [row, col]
+
+def show_online_users():
+    global user_positions
+    for user in on_users:
+        if user not in shown_users:
+            label = CTkLabel(
+                online,
+                text=user,
+                fg_color='green',
+                corner_radius=10,
+                font=('Arial', 20),
+                width=120,
+                height=50
+            )
+            r, c = user_positions
+            label.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
+
+            # next position → move across row first
+            if c < 4:   # 5 users per row
+                user_positions[1] += 1
+            else:
+                user_positions[0] += 1
+                user_positions[1] = 0
+
+            shown_users.add(user)
+
+    online.after(1000, show_online_users)
+
 
 def main():
     global chats_frame,chat_box,online
@@ -97,5 +123,9 @@ with open('userinfo.json') as conf:
         submit = CTkButton(first_frame,width=200,height=50,text='Continue',font=('Arial',22),fg_color='grey',command=set_user)
         submit.pack(pady=20)
 conf.close()
-on()
+gou = Thread(target=get_online_users,daemon=True)
+sou = Thread(target=show_online_users,daemon=True)
+gou.start()
+sou.start()
+
 app.mainloop()
