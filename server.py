@@ -9,41 +9,67 @@ app.geometry("800x600")
 
 blocked = set()
 users = dict()
+identity = []
 logs = []
 ADMIN_USER = ""
 ADMIN_PASS = ""
 
+# def update_users():
+#     get_current_users = list(users.keys())
+#     for cons,user in zip(identity,get_current_users):
+#         print(get_current_users)
+#         print(cons)
+#         print(user)
+#         cons.sendall(user.encode())
+def update_users():
+    for cons, username in zip(identity,users.keys()):
+        try:
+            cons.sendall(username.encode())
+        except Exception as e:
+            print(f"Error sending to {cons}: {e}")
+
+
 def server():
-    sock = socket(AF_INET,SOCK_DGRAM)
+    sock = socket(AF_INET,SOCK_STREAM)
     sock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
     sock.bind(('',2222))
+    sock.listen()
 
     while True:
-        print(users)
-        mon = sock.recvfrom(1024)
-        
-        if not mon:
+        con,addr = sock.accept()
+        getinfo = con.recv(1024).decode().strip()
+        print(con)
+        if not getinfo:
             continue
 
         try:
-            username = mon[0].decode().strip()
-            ip = mon[1]
-            getuser = {username:ip[0]}
+            username = getinfo
+            ip = addr[0]
+            getuser = {username:[username,ip]}
 
             if username in blocked:
                 logs.append(f'blocked user {username} try to connect')
+                con.send('B'.encode())
+                con.close()
                 continue
 
             if username not in users.keys() and username not in blocked:
                 users.update(getuser)
                 logs.append(f'{username} joined to the server with {ip}')
+                identity.append(con)
+                Thread(target=update_users,daemon=True).start()
 
             elif username in users.keys():
                 logs.append(f'{username} does suspicious connect to the server. user blocked')
+                con.send('B'.encode())
+                con.close()
                 blocked.add(username)
 
         except Exception as e:
             print(e)
+
+        except BrokenPipeError:
+            continue
 
 
 # ---------- Login Frame ----------
