@@ -10,7 +10,11 @@ app.geometry('1920x1080')
 
 user = ''
 
-__man = StringVar(app)
+_man = StringVar(app)
+
+def auto_refresh():
+    show_online_users()
+    online.after(1000, show_online_users)
 
 def ask_username():
     popup = CTkToplevel(app)
@@ -33,7 +37,7 @@ def ask_username():
             gou = Thread(target=get_online_users, daemon=True)
             gou.start()
             main()
-            online.after(800, show_online_users)
+            auto_refresh()
         else:
             showwarning(title=app_name, message="Please enter a username!")
 
@@ -51,11 +55,16 @@ def get_online_users():
         sock.send(user.encode())
         while True:
             payloads = sock.recv(1024).decode().strip()
-            if payloads:
-                on_users.append(payloads)
             if payloads == 'B':
                 showerror(message='you are blocked from server')
                 sock.close()
+            if payloads == 'MAX-ERR':
+                showinfo(title=app_name,message='Maximum users in server. so sorry!')
+                server_status = False
+            else:
+                on_users = payloads.split("\n")
+                app.after(0,show_online_users)
+
     except Exception as e:
         server_status = False
         showerror(title=app_name, message=f'Error : {str(e)}')
@@ -66,7 +75,7 @@ def send_():
         text=f'{user}:{chat_box.get().strip()}',
         font=('Arial', 22)
     ).pack(anchor='nw', padx=10, pady=10)
-    __man.set('')
+    _man.set('')
 
 
 def _on_mouse_wheel(event):
@@ -75,9 +84,6 @@ def _on_mouse_wheel(event):
     elif event.num == 5:
         chats_frame._parent_canvas.yview_scroll(3, "units")
 
-
-shown_users = set()
-user_positions = [0, 0]
 
 def main():
     global chats_frame, chat_box, online
@@ -94,38 +100,36 @@ def main():
     chats_frame.bind_all("<Button-4>", _on_mouse_wheel)
     chats_frame.bind_all("<Button-5>", _on_mouse_wheel)
 
-    chat_box = CTkEntry(home, font=('Arial', 22), width=1000, height=50, textvariable=__man)
+    chat_box = CTkEntry(home, font=('Arial', 22), width=1000, height=50, textvariable=_man)
     chat_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
     send_btn = CTkButton(home, text="➤", width=100, height=50, font=('Arial', 28), state='disabled' if server_status == False else 'normal',command=send_)
     send_btn.pack(side="right")
 
+shown_users = set()
+user_positions = [0, 0]
 def show_online_users():
-    global user_positions
     for widget in online.winfo_children():
         widget.destroy()
 
+    r, c = 0, 0
     for u in on_users:
-        if u not in shown_users:
-            label = CTkLabel(
-                online,
-                text=u,
-                fg_color='green',
-                corner_radius=10,
-                font=('Arial', 20),
-                width=120,
-                height=50
-            )
-            r, c = user_positions
-            label.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
+        label = CTkLabel(
+            online,
+            text=u,
+            fg_color='green',
+            corner_radius=10,
+            font=('Arial', 20),
+            width=120,
+            height=50
+        )
+        label.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
 
-            if c < 4:
-                user_positions[1] += 1
-            else:
-                user_positions[0] += 1
-                user_positions[1] = 0
+        if c < 4:   # 5 per row
+            c += 1
+        else:
+            r += 1
+            c = 0
 
-            shown_users.add(u)
-            
 ask_username()
 app.mainloop()

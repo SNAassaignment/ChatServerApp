@@ -14,20 +14,13 @@ logs = []
 ADMIN_USER = ""
 ADMIN_PASS = ""
 
-# def update_users():
-#     get_current_users = list(users.keys())
-#     for cons,user in zip(identity,get_current_users):
-#         print(get_current_users)
-#         print(cons)
-#         print(user)
-#         cons.sendall(user.encode())
 def update_users():
-    for cons, username in zip(identity,users.keys()):
+    for cons in identity:
         try:
-            cons.sendall(username.encode())
-        except Exception as e:
-            print(f"Error sending to {cons}: {e}")
-
+            users_list = "\n".join(users.keys())
+            cons.sendall(users_list.encode())
+        except Exception:
+            continue
 
 def server():
     sock = socket(AF_INET,SOCK_STREAM)
@@ -36,9 +29,9 @@ def server():
     sock.listen()
 
     while True:
+        Thread(target=update_users,daemon=True).start()
         con,addr = sock.accept()
         getinfo = con.recv(1024).decode().strip()
-        print(con)
         if not getinfo:
             continue
 
@@ -54,10 +47,13 @@ def server():
                 continue
 
             if username not in users.keys() and username not in blocked:
-                users.update(getuser)
-                logs.append(f'{username} joined to the server with {ip}')
-                identity.append(con)
-                Thread(target=update_users,daemon=True).start()
+                if len(identity) <= 2:
+                    users.update(getuser)
+                    logs.append(f'{username} joined to the server with {ip}')
+                    identity.append(con)
+                else:
+                    con.send('MAX-ERR'.encode())
+                    con.close()
 
             elif username in users.keys():
                 logs.append(f'{username} does suspicious connect to the server. user blocked')
@@ -71,8 +67,6 @@ def server():
         except BrokenPipeError:
             continue
 
-
-# ---------- Login Frame ----------
 login_frame = CTkFrame(app, corner_radius=20, width=400, height=300, fg_color="#2e2e2e")
 login_frame.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -85,7 +79,7 @@ username_entry.pack(pady=10)
 password_entry = CTkEntry(login_frame, placeholder_text="Password", show="*", font=("Arial", 18), width=250, height=40)
 password_entry.pack(pady=10)
 
-# ---------- Logs Panel ----------
+
 def show_logs_panel():
     global logs_frame
     logs_frame = CTkFrame(app, corner_radius=15, fg_color="#1e1e1e")
