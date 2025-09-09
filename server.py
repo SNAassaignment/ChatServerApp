@@ -32,6 +32,7 @@ def server():
         Thread(target=update_users,daemon=True).start()
         con,addr = sock.accept()
         getinfo = con.recv(1024).decode().strip()
+
         if not getinfo:
             continue
 
@@ -40,32 +41,40 @@ def server():
             ip = addr[0]
             getuser = {username:[username,ip]}
 
-            if username in blocked:
-                logs.append(f'blocked user {username} try to connect')
-                con.send('B'.encode())
-                con.close()
-                continue
-
             if username not in users.keys() and username not in blocked:
-                if len(identity) <= 2:
+                if len(identity) <= 10:
                     users.update(getuser)
                     logs.append(f'{username} joined to the server with {ip}')
                     identity.append(con)
                 else:
                     con.send('MAX-ERR'.encode())
                     con.close()
+            
+            elif getinfo.startswith('APP-CLOSE'):
+                user = getinfo.split(',')[1]
+                del users[user]
+                logs.append(f'{user} exit from the server')
 
-            elif username in users.keys():
-                logs.append(f'{username} does suspicious connect to the server. user blocked')
-                con.send('B'.encode())
-                con.close()
-                blocked.add(username)
+            else:
+                if username in blocked:
+                    logs.append(f'blocked user {username} try to connect')
+                    con.send('B'.encode())
+                    con.close()
+
+                if username in users.keys():
+                    logs.append(f'{username} does suspicious connect to the server, user blocked')
+                    con.send('B'.encode())
+                    con.close()
+                    blocked.add(username)
+            continue
 
         except Exception as e:
             print(e)
 
         except BrokenPipeError:
-            continue
+            print(username)
+            print(users)
+            break
 
 login_frame = CTkFrame(app, corner_radius=20, width=400, height=300, fg_color="#2e2e2e")
 login_frame.place(relx=0.5, rely=0.5, anchor="center")

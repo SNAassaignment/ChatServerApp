@@ -2,6 +2,7 @@ from customtkinter import *
 from tkinter.messagebox import *
 from threading import Thread
 from socket import *
+import sys
 
 app = CTk()
 app_name = 'mohamed screen'
@@ -14,7 +15,8 @@ _man = StringVar(app)
 
 def auto_refresh():
     show_online_users()
-    online.after(1000, show_online_users)
+    # online.after(1000, show_online_users)
+    app.update()
 
 def ask_username():
     popup = CTkToplevel(app)
@@ -28,6 +30,14 @@ def ask_username():
     username_entry = CTkEntry(popup, placeholder_text="Username")
     username_entry.pack(pady=5)
 
+    def reopen_window():
+        popup.destroy()
+        app.after(0,ask_username)
+
+    def on_close():
+        if askyesno(title=app_name,message='Do you want to close the app?'):
+            app.after(100,close_app)
+
     def on_continue():
         global user 
         username = username_entry.get().strip()
@@ -40,13 +50,15 @@ def ask_username():
             auto_refresh()
         else:
             showwarning(title=app_name, message="Please enter a username!")
+            reopen_window()
 
     continue_btn = CTkButton(popup, text="Continue", command=on_continue)
     continue_btn.pack(pady=15)
 
+    popup.protocol('WM_DELETE_WINDOW',on_close)
 
 def get_online_users():
-    global on_users,server_status
+    global on_users,server_status,sock
     on_users = []
     sock = socket(AF_INET, SOCK_STREAM)
     try:
@@ -58,12 +70,24 @@ def get_online_users():
             if payloads == 'B':
                 showerror(message='you are blocked from server')
                 sock.close()
+                server_status = False
+                sys.exit()
             if payloads == 'MAX-ERR':
                 showinfo(title=app_name,message='Maximum users in server. so sorry!')
                 server_status = False
             else:
                 on_users = payloads.split("\n")
-                app.after(0,show_online_users)
+                app.after(100,show_online_users)
+
+    except ConnectionRefusedError:
+        server_status = False
+        showerror(title=app_name,message='Server is now off!')
+        sock.close()
+
+    except BrokenPipeError:
+        server_status = False
+        showerror(title=app_name,message='Server is now odsdsdsdsdsdsdff!')
+        sock.close()
 
     except Exception as e:
         server_status = False
@@ -77,6 +101,16 @@ def send_():
     ).pack(anchor='nw', padx=10, pady=10)
     _man.set('')
 
+def close_app():
+    if askyesno(title=app_name,message='Do you want to exit?'):
+        try:
+            print(on_users)
+            on_users.remove(user)
+            print(on_users)
+            sock.send(f'APP-CLOSE,{user}'.encode())
+            app.destroy()
+        except:
+            pass
 
 def _on_mouse_wheel(event):
     if event.num == 4:
@@ -116,7 +150,7 @@ def show_online_users():
     for u in on_users:
         label = CTkLabel(
             online,
-            text=u,
+            text='You' if u == user else u,
             fg_color='green',
             corner_radius=10,
             font=('Arial', 20),
@@ -125,11 +159,12 @@ def show_online_users():
         )
         label.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
 
-        if c < 4:   # 5 per row
+        if c < 4: 
             c += 1
         else:
             r += 1
             c = 0
 
-ask_username()
+app.after(600,ask_username)
+app.protocol('WM_DELETE_WINDOW',close_app)
 app.mainloop()
