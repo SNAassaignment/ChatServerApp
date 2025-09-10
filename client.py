@@ -5,6 +5,7 @@ from socket import *
 import sys
 
 app = CTk()
+sock = socket(AF_INET, SOCK_STREAM)
 app_name = 'mohamed screen'
 app.title(app_name)
 app.geometry('1920x1080')
@@ -15,8 +16,7 @@ _man = StringVar(app)
 
 def auto_refresh():
     show_online_users()
-    # online.after(1000, show_online_users)
-    app.update()
+    online.after(300, show_online_users)
 
 def ask_username():
     popup = CTkToplevel(app)
@@ -36,7 +36,7 @@ def ask_username():
 
     def on_close():
         if askyesno(title=app_name,message='Do you want to close the app?'):
-            app.after(100,close_app)
+            app.after(0,close_app)
 
     def on_continue():
         global user 
@@ -58,9 +58,8 @@ def ask_username():
     popup.protocol('WM_DELETE_WINDOW',on_close)
 
 def get_online_users():
-    global on_users,server_status,sock
+    global on_users,server_status
     on_users = []
-    sock = socket(AF_INET, SOCK_STREAM)
     try:
         sock.connect(('127.0.0.1', 2222))
         server_status = True
@@ -75,9 +74,9 @@ def get_online_users():
             if payloads == 'MAX-ERR':
                 showinfo(title=app_name,message='Maximum users in server. so sorry!')
                 server_status = False
-            else:
-                on_users = payloads.split("\n")
-                app.after(100,show_online_users)
+            if payloads.startswith(':'):
+                getuser = payloads.removeprefix(':')
+                on_users.append(getuser)
 
     except ConnectionRefusedError:
         server_status = False
@@ -105,12 +104,11 @@ def close_app():
     if askyesno(title=app_name,message='Do you want to exit?'):
         try:
             print(on_users)
-            on_users.remove(user)
-            print(on_users)
-            sock.send(f'APP-CLOSE,{user}'.encode())
-            app.destroy()
-        except:
-            pass
+            sock.send(f'CLOSE-{user}'.encode())
+            app.after(1000,app.destroy())
+        except Exception as e:
+            print(e)
+            # app.destroy()
 
 def _on_mouse_wheel(event):
     if event.num == 4:
@@ -166,5 +164,6 @@ def show_online_users():
             c = 0
 
 app.after(600,ask_username)
+Thread(target=auto_refresh,daemon=True).start()
 app.protocol('WM_DELETE_WINDOW',close_app)
 app.mainloop()
