@@ -1,27 +1,10 @@
-# import tkinter as tk
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from time import sleep
+from os import system
 
-# def on_close():
-#     print("hello")   # print when X button is clicked
-
-# root = tk.Tk()
-# root.title("X Button Example")
-# root.geometry("300x200")
-
-# # Bind the X (close button) to on_close function
-# root.protocol("WM_DELETE_WINDOW", on_close)
-
-# root.mainloop()
-
-
-# a = {'a':1,'b':3}
-
-# b = list(a.keys())
-
-# f = '\n'.join(b)
-
-# print(b)
-# print(f)
-
-a = '}oidfhjodfhdofh:'
-
-print(a.removeprefix('}'))
+while True:
+    current_time = str(datetime.now(ZoneInfo('Asia/Kolkata'))).split(' ')[1].split('.')[0]
+    print(current_time)
+    sleep(0.1)
+    system('clear')

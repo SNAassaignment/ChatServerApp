@@ -24,11 +24,11 @@ def update_users():
     while True:
         for cons in identity:
             try:
-                users_list = "\n".join(users.keys())
+                users_list = ''.join(users.keys())
                 cons.sendall(f':{users_list}'.encode())
             except Exception:
                 continue    
-        sleep(1)
+        sleep(3)
 
 def remove_user(user,con,block=False):
     try:
@@ -58,32 +58,25 @@ def server(con,addr):
 
             elif getinfo.startswith('CLOSE-'):
                 c_user = getinfo.split('-')[1]
-                logs.append(f'{c_user} is disconnected from the chat')
                 remove_user(c_user,con)
+                logs.append(f'{c_user} is disconnected from the chat')
                 con.close()
                 break
 
-            elif username not in users.keys() and username not in blocked:
-                if len(identity) <= 10:
-                    users.update(getuser)
-                    logs.append(f'{username} joined to the server with {ip}')
-                    Thread(target=update_users,daemon=True).start()
-                    identity.append(con)
-                else:
-                    con.send('MAX-ERR'.encode())
+            elif getinfo.startswith('S-'):
+                user = getinfo.split('-')[1]
+                if user in users.keys():
+                    logs.append(f'user {user} try to connect in same name')
+                    logs.append(f'{user} blocked from server')
+                    blocked.add(user)
                     con.close()
-
-            elif username in blocked:
-                logs.append(f'blocked user {username} try to connect, server remove the user')
-                con.send('B'.encode())
-                remove_user(username,con)
-                con.close()
-
-            elif username in users.keys():
-                logs.append(f'{username} does suspicious connect to the server, user blocked')
-                con.send('B'.encode())
-                con.close()
-                blocked.add(username)
+                elif user in blocked:
+                    logs.append(f'blocked user {user} try to connect in server')
+                    con.close()
+                else:
+                    users.update(getuser)
+                    logs.append(f'{user} connected to the server')
+            else:pass
 
     except Exception as e:
         print(e)

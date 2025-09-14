@@ -10,13 +10,11 @@ app_name = 'mohamed screen'
 app.title(app_name)
 app.geometry('1920x1080')
 
-user = ''
-
 _man = StringVar(app)
 
 def auto_refresh():
     show_online_users()
-    online.after(300, show_online_users)
+    online.after(100, show_online_users)
 
 def ask_username():
     popup = CTkToplevel(app)
@@ -30,32 +28,14 @@ def ask_username():
     username_entry = CTkEntry(popup, placeholder_text="Username")
     username_entry.pack(pady=5)
 
-    def reopen_window():
-        popup.destroy()
-        app.after(0,ask_username)
+    CTkLabel(popup,text='Username must greaterthan 6 letters').pack(pady=5)
 
-    def on_close():
-        if askyesno(title=app_name,message='Do you want to close the app?'):
-            app.after(0,close_app)
+    if len(username_entry) > 6:
+        return username_entry
+    else:
+        showerror(app_name,'Fill the username then enter in chat room')
 
-    def on_continue():
-        global user 
-        username = username_entry.get().strip()
-        if username:
-            user = username
-            popup.destroy()
-            gou = Thread(target=get_online_users, daemon=True)
-            gou.start()
-            main()
-            auto_refresh()
-        else:
-            showwarning(title=app_name, message="Please enter a username!")
-            reopen_window()
-
-    continue_btn = CTkButton(popup, text="Continue", command=on_continue)
-    continue_btn.pack(pady=15)
-
-    popup.protocol('WM_DELETE_WINDOW',on_close)
+    popup.protocol('WM_DELETE_WINDOW',close_app)
 
 def get_online_users():
     global on_users,server_status
@@ -77,6 +57,9 @@ def get_online_users():
             if payloads.startswith(':'):
                 getuser = payloads.removeprefix(':')
                 on_users.append(getuser)
+
+    except KeyboardInterrupt:
+        app.after(0,close_app)
 
     except ConnectionRefusedError:
         server_status = False
@@ -100,15 +83,13 @@ def send_():
     ).pack(anchor='nw', padx=10, pady=10)
     _man.set('')
 
-def close_app():
+def close_app(user):
     if askyesno(title=app_name,message='Do you want to exit?'):
         try:
-            print(on_users)
             sock.send(f'CLOSE-{user}'.encode())
             app.after(1000,app.destroy())
         except Exception as e:
             print(e)
-            # app.destroy()
 
 def _on_mouse_wheel(event):
     if event.num == 4:
@@ -138,8 +119,6 @@ def main():
     send_btn = CTkButton(home, text="➤", width=100, height=50, font=('Arial', 28), state='disabled' if server_status == False else 'normal',command=send_)
     send_btn.pack(side="right")
 
-shown_users = set()
-user_positions = [0, 0]
 def show_online_users():
     for widget in online.winfo_children():
         widget.destroy()
