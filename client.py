@@ -1,148 +1,335 @@
 from customtkinter import *
-from tkinter.messagebox import *
-from threading import Thread
 from socket import *
-import sys
+from threading import Thread
+from tkinter.messagebox import showerror,showinfo,askyesno
+import random
+from datetime import datetime
+from time import sleep
 
+set_appearance_mode("light")
+set_default_color_theme("blue")
+
+app_name = 'Mohamed\'s server'
 app = CTk()
-sock = socket(AF_INET, SOCK_STREAM)
-app_name = 'mohamed screen'
+username = StringVar()
+app.geometry("1400x800")
 app.title(app_name)
-app.geometry('1920x1080')
+app.configure(fg_color="#f5f7fa") 
+sock = socket(AF_INET,SOCK_STREAM)
+sock.connect(('127.0.0.1',2222))
 
-_man = StringVar(app)
+# -------------------- Frames --------------------
+# Sidebar frame for online users
+sidebar_frame = CTkFrame(app, width=300, fg_color="#2c3e50", corner_radius=0)
+sidebar_frame.pack(side="left", fill="y", padx=(0, 10))
 
-def auto_refresh():
-    show_online_users()
-    online.after(100, show_online_users)
+# Main content frame
+content_frame = CTkFrame(app, fg_color="#ffffff", corner_radius=12)
+content_frame.pack(side="right", expand=True, fill="both", padx=20, pady=20)
+
+# -------------------- Online Users Section --------------------
+# Online users header
+online_users_header = CTkFrame(sidebar_frame, fg_color="#34495e", height=60,corner_radius=0)
+online_users_header.pack(fill="x", pady=(0, 10))
+
+CTkLabel(online_users_header, text="Online Users", 
+         font=("Arial", 20, "bold"), text_color="white").pack(expand=True, pady=15)
+
+
+users_scrollable = CTkScrollableFrame(sidebar_frame, fg_color="transparent")
+users_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
+
+users = [
+
+]
+
+def create_user_card(parent, user):
+    card = CTkFrame(parent, height=60, fg_color="#34495e", corner_radius=8)
+    card.pack(fill="x", pady=5)
+    
+    # User avatar with random color based on name
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
+    color = random.choice(colors)
+    
+    avatar = CTkLabel(card, text=user["name"][0], 
+                     width=5, height=40,
+                     fg_color=color, 
+                     text_color="white",
+                     corner_radius=18,
+                     font=("Arial", 16, "bold"))
+    avatar.place(x=10, y=10)
+    
+    # User info
+    CTkLabel(card, text=user["name"], 
+            font=("Arial", 14, "bold"),
+            text_color="white").place(x=80, y=12)
+    
+    return card
+
+# Add all users to the scrollable frame
+for user in users:
+    Thread(target=create_user_card,args=(users_scrollable, user),daemon=True).start()
+
+# -------------------- Main Content --------------------
+# Welcome header
+header_frame = CTkFrame(content_frame, fg_color="transparent", height=80)
+header_frame.pack(fill="x", padx=30, pady=(30, 20))
+
+CTkLabel(header_frame, textvariable=username, 
+         font=("Arial", 32, "bold"),
+         text_color="#2c3e50").pack(side="left")
+
+# -------------------- Chat Room Section --------------------
+chat_frame = CTkFrame(content_frame, fg_color="#f8f9fa", corner_radius=12)
+chat_frame.pack(fill="both", expand=True, padx=30, pady=(0, 30))
+
+# Chat header
+chat_header = CTkFrame(chat_frame, fg_color="#e9ecef", height=60, corner_radius=12)
+chat_header.pack(fill="x", pady=(0, 5))
+
+CTkLabel(chat_header, text="General Chat Room", 
+         font=("Arial", 18, "bold"),
+         text_color="#2c3e50").pack(side="left", padx=20)
+
+# Message display area
+messages_frame = CTkScrollableFrame(chat_frame, fg_color="transparent")
+messages_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+sample_messages = [
+    
+]
+
+# Function to create message bubbles
+def create_message_bubble(parent, message, is_own=False):
+    bubble_frame = CTkFrame(parent, fg_color="transparent")
+    bubble_frame.pack(fill="x", pady=8)
+    
+    # Align to right if it's our message
+    if is_own:
+        inner_frame = CTkFrame(bubble_frame, fg_color="transparent")
+        inner_frame.pack(anchor="e")
+        
+        # Time label
+        CTkLabel(inner_frame, text=message["time"], 
+                font=("Arial", 10),
+                text_color="#7f8c8d").pack(anchor="e", padx=(0, 10))
+        
+        # Message bubble
+        bubble = CTkFrame(inner_frame, fg_color="#3498db", corner_radius=12)
+        bubble.pack(anchor="e", pady=2)
+        
+        CTkLabel(bubble, text=message["text"], 
+                font=("Arial", 14),
+                text_color="white",
+                wraplength=400, justify="left").pack(padx=15, pady=10)
+        
+        # Sender name
+        CTkLabel(inner_frame, text="You", 
+                font=("Arial", 12, "bold"),
+                text_color="#2c3e50").pack(anchor="e", padx=(0, 10))
+    else:
+        inner_frame = CTkFrame(bubble_frame, fg_color="transparent")
+        inner_frame.pack(anchor="w")
+        
+        # Sender name
+        CTkLabel(inner_frame, text=message["sender"], 
+                font=("Arial", 12, "bold"),
+                text_color="#2c3e50").pack(anchor="w", padx=(10, 0))
+        
+        # Message bubble
+        bubble = CTkFrame(inner_frame, fg_color="#e9ecef", corner_radius=12)
+        bubble.pack(anchor="w", pady=2)
+        
+        CTkLabel(bubble, text=message["text"], 
+                font=("Arial", 14),
+                text_color="#2c3e50",
+                wraplength=400, justify="left").pack(padx=15, pady=10)
+        
+        # Time label
+        CTkLabel(inner_frame, text=message["time"], 
+                font=("Arial", 10),
+                text_color="#7f8c8d").pack(anchor="w", padx=(10, 0))
+
+# Add sample messages to the chat
+for msg in sample_messages:
+    is_own = msg["sender"] == "Hathim"
+    Thread(target=create_message_bubble,args=(messages_frame, msg, is_own),daemon=True).start()
+
+# Message input area
+input_frame = CTkFrame(chat_frame, fg_color="transparent", height=70)
+input_frame.pack(fill="x", padx=10, pady=10)
+
+# Message input field
+message_entry = CTkEntry(input_frame, 
+                        placeholder_text="Type your message here...",
+                        font=("Arial", 14),
+                        height=45,
+                        corner_radius=20,
+                        border_width=0,
+                        fg_color="#e9ecef")
+message_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+# Function to send a message
+def send_message():
+    message_text = message_entry.get()
+    if message_text.strip():
+        # Get current time
+        now = datetime.now()
+        time_str = now.strftime("%H:%M %p")
+        
+        # Create new message
+        new_message = {
+            "sender": "Hathim",
+            "text": message_text,
+            "time": time_str
+        }
+        
+        # Add to chat
+        create_message_bubble(messages_frame, new_message, True)
+        
+        # Clear input
+        message_entry.delete(0, END)
+        
+        # Scroll to bottom
+        messages_frame._parent_canvas.yview_moveto(1.0)
+
+# Send button
+send_button = CTkButton(input_frame, 
+                       text="Send",
+                       command=send_message,
+                       font=("Arial", 14, "bold"),
+                       height=45,
+                       width=100,
+                       fg_color="#3498db",
+                       hover_color="#2980b9",
+                       corner_radius=20)
+send_button.pack(side="right")
+
+message_entry.bind("<Return>", lambda event: send_message())
 
 def ask_username():
     popup = CTkToplevel(app)
-    popup.geometry("300x180")
     popup.title("Enter Username")
-    popup.grab_set()
+    popup.geometry("500x300")
+    popup.resizable(False, False)
+    popup.grab_set()  # Make it modal (block main window until closed)
+    popup.configure(fg_color="#f5f7fa")  # soft background
 
-    label = CTkLabel(popup, text="Enter your username:")
-    label.pack(pady=10)
+    # Header
+    header = CTkLabel(
+        popup, 
+        text="👤 Welcome!",
+        font=("Arial", 22, "bold"),
+        text_color="#2c3e50"
+    )
+    header.pack(pady=(20, 10))
 
-    username_entry = CTkEntry(popup, placeholder_text="Username")
-    username_entry.pack(pady=5)
+    subtitle = CTkLabel(
+        popup,
+        text="Please enter your username to continue",
+        font=("Arial", 14),
+        text_color="#7f8c8d"
+    )
+    subtitle.pack(pady=(0, 20))
 
-    CTkLabel(popup,text='Username must greaterthan 6 letters').pack(pady=5)
+    # Username entry
+    username_entry = CTkEntry(
+        popup,
+        placeholder_text="Type your username...",
+        width=280,
+        height=40,
+        corner_radius=15,
+        font=("Arial", 14),
+        fg_color="#ecf0f1"
+    )
+    username_entry.pack(pady=10)
 
-    if len(username_entry) > 6:
-        return username_entry
-    else:
-        showerror(app_name,'Fill the username then enter in chat room')
+    # Action buttons frame
+    button_frame = CTkFrame(popup, fg_color="transparent")
+    button_frame.pack(pady=20)
 
-    popup.protocol('WM_DELETE_WINDOW',close_app)
+    def confirm_username():
+        _username = username_entry.get().strip()
+        if _username:
+            username.set(f'Welcome, {username_entry.get().strip()}')
+            sock.sendall(f'S-{username.get().split(',')[1].strip()}'.encode())
+            popup.destroy()
+        if not _username:
+            showinfo(title=app_name,message='enter your username to continue')
+            ask_username()
 
-def get_online_users():
-    global on_users,server_status
-    on_users = []
+    def cancel():
+        if askyesno(title=app_name,message='You don\'t continue the app without username!'):
+            app.destroy()
+        else:
+            popup.destroy()
+            ask_username()
+
+    confirm_btn = CTkButton(
+        button_frame,
+        text="Confirm",
+        command=confirm_username,
+        fg_color="#3498db",
+        hover_color="#2980b9",
+        corner_radius=15,
+        width=120,
+        height=50,
+        font=("Arial", 14, "bold")
+    )
+    confirm_btn.pack(side="left", padx=10)
+
+    cancel_btn = CTkButton(
+        button_frame,
+        text="Cancel",
+        command=cancel,
+        fg_color="#e74c3c",
+        hover_color="#c0392b",
+        corner_radius=15,
+        width=120,
+        height=50,
+        font=("Arial", 14, "bold")
+    )
+    cancel_btn.pack(side="right", padx=10)
+
+    username_entry.focus()
+
+def on_close():
     try:
-        sock.connect(('127.0.0.1', 2222))
-        server_status = True
-        sock.send(user.encode())
-        while True:
-            payloads = sock.recv(1024).decode().strip()
-            if payloads == 'B':
-                showerror(message='you are blocked from server')
-                sock.close()
-                server_status = False
-                sys.exit()
-            if payloads == 'MAX-ERR':
-                showinfo(title=app_name,message='Maximum users in server. so sorry!')
-                server_status = False
-            if payloads.startswith(':'):
-                getuser = payloads.removeprefix(':')
-                on_users.append(getuser)
+        sock.send(f'CC-{username.get().split(',')[1].strip()}'.encode())
+        sleep(0.8)
+        sock.close()
+    except:
+        pass
+    finally:
+        sock.close()
+        app.destroy()
 
-    except KeyboardInterrupt:
-        app.after(0,close_app)
+def start_server():
+    try:
+        ask_username()
+        #get online users from the server to show case clients each other.
+        while True:
+            get_o_users = sock.recv(1024).decode().strip()
+
+            if not get_o_users:
+                continue
+            elif get_o_users.startswith('OU:'):
+                get_users = get_o_users.split(':')[1]
+                if get_users != 'None':
+                    users.append({'name':get_users})
+                    print(users)
+                else:pass
 
     except ConnectionRefusedError:
-        server_status = False
-        showerror(title=app_name,message='Server is now off!')
-        sock.close()
+        showerror(title=app_name,message='Now the server get down, try again later')
 
-    except BrokenPipeError:
-        server_status = False
-        showerror(title=app_name,message='Server is now odsdsdsdsdsdsdff!')
-        sock.close()
+    except ConnectionResetError:
+        showerror(title=app_name,message='Server issue try again')
 
     except Exception as e:
-        server_status = False
-        showerror(title=app_name, message=f'Error : {str(e)}')
+        print(e)
 
-def send_():
-    CTkLabel(
-        chats_frame,
-        text=f'{user}:{chat_box.get().strip()}',
-        font=('Arial', 22)
-    ).pack(anchor='nw', padx=10, pady=10)
-    _man.set('')
-
-def close_app(user):
-    if askyesno(title=app_name,message='Do you want to exit?'):
-        try:
-            sock.send(f'CLOSE-{user}'.encode())
-            app.after(1000,app.destroy())
-        except Exception as e:
-            print(e)
-
-def _on_mouse_wheel(event):
-    if event.num == 4:
-        chats_frame._parent_canvas.yview_scroll(-3, "units")
-    elif event.num == 5:
-        chats_frame._parent_canvas.yview_scroll(3, "units")
-
-
-def main():
-    global chats_frame, chat_box, online
-    toptab = CTkTabview(app)
-    toptab.pack(fill='both', expand=True)
-
-    home = toptab.add('Home')
-    online = toptab.add('Online users')
-
-    CTkLabel(home, text=f'Hi, {user}', font=('Arial', 33)).pack(pady=30)
-    chats_frame = CTkScrollableFrame(home, fg_color='grey', width=1990, height=700)
-    chats_frame.pack(padx=0, pady=5, fill="both", expand=True)
-
-    chats_frame.bind_all("<Button-4>", _on_mouse_wheel)
-    chats_frame.bind_all("<Button-5>", _on_mouse_wheel)
-
-    chat_box = CTkEntry(home, font=('Arial', 22), width=1000, height=50, textvariable=_man)
-    chat_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
-
-    send_btn = CTkButton(home, text="➤", width=100, height=50, font=('Arial', 28), state='disabled' if server_status == False else 'normal',command=send_)
-    send_btn.pack(side="right")
-
-def show_online_users():
-    for widget in online.winfo_children():
-        widget.destroy()
-
-    r, c = 0, 0
-    for u in on_users:
-        label = CTkLabel(
-            online,
-            text='You' if u == user else u,
-            fg_color='green',
-            corner_radius=10,
-            font=('Arial', 20),
-            width=120,
-            height=50
-        )
-        label.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
-
-        if c < 4: 
-            c += 1
-        else:
-            r += 1
-            c = 0
-
-app.after(600,ask_username)
-Thread(target=auto_refresh,daemon=True).start()
-app.protocol('WM_DELETE_WINDOW',close_app)
+Thread(target=start_server,daemon=True).start()
+# start_server()
+app.protocol('WM_DELETE_WINDOW',on_close)
 app.mainloop()

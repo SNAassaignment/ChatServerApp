@@ -21,27 +21,18 @@ sock.bind(('',2222))
 sock.listen()
 
 def update_users():
-    while True:
-        for cons in identity:
-            try:
-                users_list = ''.join(users.keys())
-                cons.sendall(f':{users_list}'.encode())
-            except Exception:
-                continue    
-        sleep(3)
+    all_users = '\n'.join(users.keys()) if len(users.keys()) > 0 else None
+    for con in identity:
+        try:
+            con.sendall(f'OU:{all_users}'.encode())
+        except:
+            pass
 
 def remove_user(user,con,block=False):
     try:
-        for _users,identities in zip(users.keys(),identity):
-            if user in _users:
-                del users[_users]
-            if con in identity:
-                identity.remove(identities)
-    
-        if block:
-            for blkd in blocked:
-                if user in blkd:
-                    blocked.remove(user)
+        identity.remove(con)
+        list(users.keys()).remove(user) 
+        blocked.remove(user) if block else None
     except Exception as e:
         print(e)
 
@@ -56,14 +47,15 @@ def server(con,addr):
             if not getinfo:
                 continue
 
-            elif getinfo.startswith('CLOSE-'):
+            if getinfo.startswith('CLOSE-'):
                 c_user = getinfo.split('-')[1]
                 remove_user(c_user,con)
                 logs.append(f'{c_user} is disconnected from the chat')
                 con.close()
                 break
 
-            elif getinfo.startswith('S-'):
+            #S - This flag for to detect same user connection
+            if getinfo.startswith('S-'):
                 user = getinfo.split('-')[1]
                 if user in users.keys():
                     logs.append(f'user {user} try to connect in same name')
@@ -76,10 +68,20 @@ def server(con,addr):
                 else:
                     users.update(getuser)
                     logs.append(f'{user} connected to the server')
-            else:pass
+
+            #Close connection - CC
+            if getinfo.startswith('CC-'):
+                get_user = getinfo.split('-')[1]
+                logs.append(f'{get_user} exit from the chat server')
+                remove_user(get_user,con,False)
+                con.close()
 
     except Exception as e:
         print(e)
+
+    except OSError:
+        con.close()
+        remove_user(username,con)
 
     except BrokenPipeError:
         print(username)
@@ -100,13 +102,15 @@ password_entry.pack(pady=10)
 def start_server():
     start_btn.destroy()
     build_logs_panel(logs_frame)
-    Thread(target=ac,daemon=True).start()
+    Thread(target=accept_users,daemon=True).start()
 
-def ac():
+def accept_users():
     while True:
         con,addr = sock.accept()
+        identity.append(con)
         Thread(target=server,args=(con,addr),daemon=True).start()
-
+        Thread(target=update_users,daemon=True).start()
+        
 def show_logs_panel():
     global logs_frame,start_btn
     logs_frame = CTkFrame(app, corner_radius=15, fg_color="#1e1e1e")
@@ -163,5 +167,4 @@ def login():
 login_btn = CTkButton(login_frame, text="Login", font=("Arial", 18), width=200, height=40, fg_color="green", command=login)
 login_btn.pack(pady=20)
 
-Thread(target=update_users,daemon=True).start()
 app.mainloop()
