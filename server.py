@@ -10,7 +10,7 @@ app.geometry("800x600")
 
 blocked = set()
 users = dict()
-identity = []
+identity = set()
 logs = []
 ADMIN_USER = ""
 ADMIN_PASS = ""
@@ -21,12 +21,12 @@ sock.bind(('',2222))
 sock.listen()
 
 def update_users():
-    all_users = '\n'.join(users.keys()) if len(users.keys()) > 0 else None
+    all_users = ','.join(set(users.keys()))
     for con in identity:
         try:
             con.sendall(f'OU:{all_users}'.encode())
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
 def remove_user(user,con,block=False):
     try:
@@ -36,13 +36,34 @@ def remove_user(user,con,block=False):
     except Exception as e:
         print(e)
 
+def check_new_user(user,con,addr):
+    is_new_user = True
+    try:
+        for blk_user in blocked:
+            if user == blk_user:
+                logs.append(f'Blocked user {user} try to connect.')
+                con.sendall('RU'.encode())
+                is_new_user = False
+                con.close()
+
+        for _user in users.keys():
+            if user == _user:
+                logs.append(f'User {user} try to connect again while in server')
+                is_new_user = False
+                con.sendall('RU'.encode())
+                con.close()
+
+        if is_new_user:
+            logs.append(f'{user} connected to the server')
+            users.update({user:[user,addr[1]]})
+
+    except Exception as e:
+        print(e)
+
 def server(con,addr):
     try:
         while True:
             getinfo = con.recv(1024).decode().strip()
-            username = getinfo
-            ip = addr[0]
-            getuser = {username:[username,ip]}
 
             if not getinfo:
                 continue
@@ -54,20 +75,10 @@ def server(con,addr):
                 con.close()
                 break
 
-            #S - This flag for to detect same user connection
-            if getinfo.startswith('S-'):
-                user = getinfo.split('-')[1]
-                if user in users.keys():
-                    logs.append(f'user {user} try to connect in same name')
-                    logs.append(f'{user} blocked from server')
-                    blocked.add(user)
-                    con.close()
-                elif user in blocked:
-                    logs.append(f'blocked user {user} try to connect in server')
-                    con.close()
-                else:
-                    users.update(getuser)
-                    logs.append(f'{user} connected to the server')
+            if getinfo.startswith('NEW-'):
+                getuser = getinfo.split('-')[1]
+                check_new_user(getuser,con,addr)
+                Thread(target=update_users(),daemon=True).start()
 
             #Close connection - CC
             if getinfo.startswith('CC-'):
@@ -81,10 +92,8 @@ def server(con,addr):
 
     except OSError:
         con.close()
-        remove_user(username,con)
 
     except BrokenPipeError:
-        print(username)
         print(users)
 
 login_frame = CTkFrame(app, corner_radius=20, width=400, height=300, fg_color="#2e2e2e")
@@ -107,9 +116,9 @@ def start_server():
 def accept_users():
     while True:
         con,addr = sock.accept()
-        identity.append(con)
+        identity.add(con)
         Thread(target=server,args=(con,addr),daemon=True).start()
-        Thread(target=update_users,daemon=True).start()
+        # Thread(target=update_users,daemon=True).start()
         
 def show_logs_panel():
     global logs_frame,start_btn

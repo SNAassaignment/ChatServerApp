@@ -16,7 +16,7 @@ app.geometry("1400x800")
 app.title(app_name)
 app.configure(fg_color="#f5f7fa") 
 sock = socket(AF_INET,SOCK_STREAM)
-sock.connect(('127.0.0.1',2222))
+showed_users = set()
 
 # -------------------- Frames --------------------
 # Sidebar frame for online users
@@ -39,9 +39,7 @@ CTkLabel(online_users_header, text="Online Users",
 users_scrollable = CTkScrollableFrame(sidebar_frame, fg_color="transparent")
 users_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
 
-users = [
-
-]
+users = []
 
 def create_user_card(parent, user):
     card = CTkFrame(parent, height=60, fg_color="#34495e", corner_radius=8)
@@ -51,7 +49,7 @@ def create_user_card(parent, user):
     colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
     color = random.choice(colors)
     
-    avatar = CTkLabel(card, text=user["name"][0], 
+    avatar = CTkLabel(card, text=user[0], 
                      width=5, height=40,
                      fg_color=color, 
                      text_color="white",
@@ -60,15 +58,13 @@ def create_user_card(parent, user):
     avatar.place(x=10, y=10)
     
     # User info
-    CTkLabel(card, text=user["name"], 
+    CTkLabel(card, text=user, 
             font=("Arial", 14, "bold"),
             text_color="white").place(x=80, y=12)
+    showed_users.add(user)
     
     return card
 
-# Add all users to the scrollable frame
-for user in users:
-    Thread(target=create_user_card,args=(users_scrollable, user),daemon=True).start()
 
 # -------------------- Main Content --------------------
 # Welcome header
@@ -252,7 +248,7 @@ def ask_username():
         _username = username_entry.get().strip()
         if _username:
             username.set(f'Welcome, {username_entry.get().strip()}')
-            sock.sendall(f'S-{username.get().split(',')[1].strip()}'.encode())
+            sock.sendall(f'NEW-{username.get().split(',')[1].strip()}'.encode())
             popup.destroy()
         if not _username:
             showinfo(title=app_name,message='enter your username to continue')
@@ -304,8 +300,20 @@ def on_close():
         sock.close()
         app.destroy()
 
+def add_users(user_list):
+    rm_dup = set()
+    rm_dup.clear()
+    for u in user_list:
+        rm_dup.add(u)
+    
+    for _u in rm_dup:
+        users.append({'name':_u})
+    
+    return rm_dup
+
 def start_server():
     try:
+        sock.connect(('127.0.0.1',2222))
         ask_username()
         #get online users from the server to show case clients each other.
         while True:
@@ -313,12 +321,20 @@ def start_server():
 
             if not get_o_users:
                 continue
-            elif get_o_users.startswith('OU:'):
-                get_users = get_o_users.split(':')[1]
-                if get_users != 'None':
-                    users.append({'name':get_users})
-                    print(users)
-                else:pass
+
+            if get_o_users.startswith('OU:'):
+                user = get_o_users.split(':')[1].split(',')
+                #Remove duplicate user for iteration
+                rm_dup_u = add_users(user)
+
+                for _user in rm_dup_u:
+                    if _user not in showed_users:
+                        Thread(target=create_user_card,args=(users_scrollable, str(_user)),daemon=True).start()
+
+            if get_o_users == 'RU':
+                showinfo(title=app_name,message='Server rejects you')
+
+            continue
 
     except ConnectionRefusedError:
         showerror(title=app_name,message='Now the server get down, try again later')
@@ -330,6 +346,5 @@ def start_server():
         print(e)
 
 Thread(target=start_server,daemon=True).start()
-# start_server()
 app.protocol('WM_DELETE_WINDOW',on_close)
 app.mainloop()
