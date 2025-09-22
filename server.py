@@ -2,7 +2,8 @@ from customtkinter import *
 from socket import *
 from threading import Thread
 from tkinter.messagebox import showerror
-from time import sleep
+from time import time
+from inspect import currentframe
 
 app = CTk()
 app.title("Admin Panel")
@@ -26,15 +27,15 @@ def update_users():
         try:
             con.sendall(f'OU:{all_users}'.encode())
         except Exception as e:
-            print(e)
+            print(e,f'line number:{currentframe().f_lineno}')
 
 def remove_user(user,con,block=False):
     try:
         identity.remove(con)
-        list(users.keys()).remove(user) 
+        for _user in list(users.keys()): list(users.keys()).remove(user) if user == _user else None
         blocked.remove(user) if block else None
     except Exception as e:
-        print(e)
+        print(e,f'line number:{currentframe().f_lineno}')
 
 def check_new_user(user,con,addr):
     is_new_user = True
@@ -44,21 +45,19 @@ def check_new_user(user,con,addr):
                 logs.append(f'Blocked user {user} try to connect.')
                 con.sendall('RU'.encode())
                 is_new_user = False
-                con.close()
 
         for _user in users.keys():
             if user == _user:
                 logs.append(f'User {user} try to connect again while in server')
-                is_new_user = False
                 con.sendall('RU'.encode())
-                con.close()
+                is_new_user = False
 
         if is_new_user:
             logs.append(f'{user} connected to the server')
             users.update({user:[user,addr[1]]})
 
     except Exception as e:
-        print(e)
+        print(e,f'line number:{currentframe().f_lineno}')
 
 def server(con,addr):
     try:
@@ -68,33 +67,31 @@ def server(con,addr):
             if not getinfo:
                 continue
 
-            if getinfo.startswith('CLOSE-'):
-                c_user = getinfo.split('-')[1]
-                remove_user(c_user,con)
-                logs.append(f'{c_user} is disconnected from the chat')
-                con.close()
-                break
-
             if getinfo.startswith('NEW-'):
                 getuser = getinfo.split('-')[1]
                 check_new_user(getuser,con,addr)
-                Thread(target=update_users(),daemon=True).start()
+                update_users()
 
             #Close connection - CC
             if getinfo.startswith('CC-'):
+                global get_user
                 get_user = getinfo.split('-')[1]
-                logs.append(f'{get_user} exit from the chat server')
-                remove_user(get_user,con,False)
+                remove_user(get_user,con)
+                for _con in identity:
+                    try:
+                        if _con != con:
+                            _con.sendall(f'LEFT-{get_user}'.encode())
+                    except:pass
+                # logs.append(f'{get_user} left from the chat server')
+                logs.append(f'{get_user} is disconnected')
                 con.close()
 
-    except Exception as e:
-        print(e)
-
     except OSError:
-        con.close()
+        remove_user(get_user,con)
 
-    except BrokenPipeError:
-        print(users)
+    except Exception as e:
+        print(e,f'line number:{currentframe().f_lineno}')
+
 
 login_frame = CTkFrame(app, corner_radius=20, width=400, height=300, fg_color="#2e2e2e")
 login_frame.place(relx=0.5, rely=0.5, anchor="center")
@@ -116,9 +113,16 @@ def start_server():
 def accept_users():
     while True:
         con,addr = sock.accept()
-        identity.add(con)
-        Thread(target=server,args=(con,addr),daemon=True).start()
-        # Thread(target=update_users,daemon=True).start()
+        if con:
+            c_time = int(time() * 1000)
+            print(c_time)
+            identity.add(con)
+            Thread(target=server,args=(con,addr),daemon=True).start()
+            now = int(time() * 1000)
+            print(now)
+            delay = int((now - c_time) / 1000)
+            print(delay)
+
         
 def show_logs_panel():
     global logs_frame,start_btn
@@ -145,7 +149,7 @@ def build_logs_panel(parent):
 
     logs_box = CTkTextbox(
         parent,
-        font=("Consolas", 16),
+        font=("Consolas", 25),
         width=700,
         height=400,
         corner_radius=10

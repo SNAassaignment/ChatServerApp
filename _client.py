@@ -5,6 +5,7 @@ from tkinter.messagebox import showerror,showinfo,askyesno
 import random
 from datetime import datetime
 from time import sleep
+from inspect import currentframe
 
 set_appearance_mode("light")
 set_default_color_theme("blue")
@@ -356,7 +357,7 @@ def start_server():
         showerror(title=app_name,message='Server issue try again')
 
     except Exception as e:
-        print(e)
+        print(e,f'line number:{currentframe().f_lineno}')
 
 Thread(target=start_server,daemon=True).start()
 app.protocol('WM_DELETE_WINDOW',on_close)
