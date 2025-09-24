@@ -31,7 +31,7 @@ def update_users():
 
 def remove_user(user,con,block=False):
     try:
-        identity.remove(con)
+        identity.discard(con)
         for _user in list(users.keys()): list(users.keys()).remove(user) if user == _user else None
         blocked.remove(user) if block else None
     except Exception as e:
@@ -112,17 +112,27 @@ def start_server():
 
 def accept_users():
     while True:
+        starttm = int(time() % 60)
         con,addr = sock.accept()
         if con:
-            c_time = int(time() * 1000)
-            print(c_time)
-            identity.add(con)
-            Thread(target=server,args=(con,addr),daemon=True).start()
-            now = int(time() * 1000)
-            print(now)
-            delay = int((now - c_time) / 1000)
-            print(delay)
+            end = int(time() % 60)
+            delay = end - starttm
+            if delay < 1:
+                print(starttm)
+                print(end)
+                print(delay)
+                con.close()
+                logs.append(f'client {addr[0]} too fast to connect to server')
 
+                try:
+                    if con in identity:
+                        identity.remove(con)
+                        print('con is removed')
+                except Exception as e:
+                    print(e)
+            else:
+                identity.add(con)
+                Thread(target=server,args=(con,addr),daemon=True).start()              
         
 def show_logs_panel():
     global logs_frame,start_btn
