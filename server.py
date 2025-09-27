@@ -4,6 +4,7 @@ from threading import Thread
 from tkinter.messagebox import showerror
 from time import time
 from inspect import currentframe
+from customenc import *
 
 app = CTk()
 app.title("Admin Panel")
