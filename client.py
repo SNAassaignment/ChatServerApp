@@ -351,7 +351,7 @@ def start_server():
 
             #RU - Rejected user
             if get_o_users == 'RU':
-                app.after(0,lambda:showinfo(title=app_name,message='Server rejects you'))
+                app.after(0,lambda:showinfo(title=app_name,message=f'{_username} already in server, so try another name'))
                 sock.close()
 
             if get_o_users.startswith('LEFT-'):

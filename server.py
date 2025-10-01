@@ -57,12 +57,12 @@ def check_new_user(user,con,addr):
 
         for _user in users.keys():
             if user == _user:
-                logs.append(f'User {user} try to connect again while in server')
+                logs.append(f'User {user} try to connect again while in server with {addr[0]}:{addr[1]}')
                 con.sendall('RU'.encode())
                 is_new_user = False
 
         if is_new_user:
-            logs.append(f'{user} connected to the server')
+            logs.append(f'{user} connected to the server with {addr[0]}:{addr[1]}')
             users.update({user:[user,addr[1]]})
 
     except Exception as e:
@@ -71,36 +71,40 @@ def check_new_user(user,con,addr):
 def server(con,addr):
     try:
         while True:
-            getinfo = con.recv(1024).decode().strip()
+            try:
+                getinfo = con.recv(1024).decode().strip()
 
-            if not getinfo:
-                continue
+                if not getinfo:
+                    continue
 
-            if getinfo.startswith('NEW-'):
-                getuser = getinfo.split('-')[1]
-                check_new_user(getuser,con,addr)
-                update_users()
+                if getinfo.startswith('NEW-'):
+                    getuser = getinfo.split('-')[1]
+                    check_new_user(getuser,con,addr)
+                    update_users()
 
-            #Close connection - CC
-            if getinfo.startswith('CC-'):
-                global get_user
-                get_user = getinfo.split('-')[1]
+                #Close connection - CC
+                if getinfo.startswith('CC-'):
+                    global get_user
+                    get_user = getinfo.split('-')[1]
+                    remove_user(get_user,con)
+                    for _con in identity:
+                        try:
+                            if _con != con:
+                                _con.sendall(f'LEFT-{get_user}'.encode())
+                        except:pass
+                    # logs.append(f'{get_user} left from the chat server')
+                    logs.append(f'{get_user} is disconnected')
+                    con.close()
+
+                if getinfo.startswith('MSG:'):
+                    info = getinfo.split(':')[1]+':'+getinfo.split(':')[2]
+                    broadcast_message(sock,info)
+
+            except ConnectionResetError:
                 remove_user(get_user,con)
-                for _con in identity:
-                    try:
-                        if _con != con:
-                            _con.sendall(f'LEFT-{get_user}'.encode())
-                    except:pass
-                # logs.append(f'{get_user} left from the chat server')
-                logs.append(f'{get_user} is disconnected')
-                con.close()
 
-            if getinfo.startswith('MSG:'):
-                info = getinfo.split(':')[1]+':'+getinfo.split(':')[2]
-                broadcast_message(sock,info)
-
-    except OSError:
-        remove_user(get_user,con)
+    except (OSError,BrokenPipeError,NameError):
+        pass
 
     except Exception as e:
         print(e,f'line number:{currentframe().f_lineno}')
