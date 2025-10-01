@@ -38,6 +38,14 @@ def remove_user(user,con,block=False):
     except Exception as e:
         print(e,f'line number:{currentframe().f_lineno}')
 
+def broadcast_message(con,msg):
+    for cons in identity:
+        if cons != con:
+            try:
+                cons.sendall(('MSG:'+msg).encode())
+            except Exception as e:
+                print(e)
+
 def check_new_user(user,con,addr):
     is_new_user = True
     try:
@@ -87,12 +95,15 @@ def server(con,addr):
                 logs.append(f'{get_user} is disconnected')
                 con.close()
 
+            if getinfo.startswith('MSG:'):
+                info = getinfo.split(':')[1]+':'+getinfo.split(':')[2]
+                broadcast_message(sock,info)
+
     except OSError:
         remove_user(get_user,con)
 
     except Exception as e:
         print(e,f'line number:{currentframe().f_lineno}')
-
 
 login_frame = CTkFrame(app, corner_radius=20, width=400, height=300, fg_color="#2e2e2e")
 login_frame.place(relx=0.5, rely=0.5, anchor="center")
@@ -113,10 +124,10 @@ def start_server():
 
 def accept_users():
     while True:
-        starttm = int(time() % 60)
+        starttm = time()
         con,addr = sock.accept()
         if con:
-            end = int(time() % 60)
+            end = time()
             delay = end - starttm
             if delay < 1:
                 print(starttm)

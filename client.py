@@ -5,6 +5,7 @@ from tkinter.messagebox import showerror,showinfo,askyesno
 import random
 from datetime import datetime
 from time import sleep
+from customenc import *
 
 set_appearance_mode("light")
 set_default_color_theme("blue")
@@ -92,10 +93,6 @@ CTkLabel(chat_header, text="General Chat Room",
 messages_frame = CTkScrollableFrame(chat_frame, fg_color="transparent")
 messages_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-sample_messages = [
-    
-]
-
 # Function to create message bubbles
 def create_message_bubble(parent, message, is_own=False):
     bubble_frame = CTkFrame(parent, fg_color="transparent")
@@ -107,7 +104,7 @@ def create_message_bubble(parent, message, is_own=False):
         inner_frame.pack(anchor="e")
         
         # Time label
-        CTkLabel(inner_frame, text=message["time"], 
+        CTkLabel(inner_frame, text=datetime.now().strftime("%H:%M %p"), 
                 font=("Arial", 10),
                 text_color="#7f8c8d").pack(anchor="e", padx=(0, 10))
         
@@ -115,7 +112,7 @@ def create_message_bubble(parent, message, is_own=False):
         bubble = CTkFrame(inner_frame, fg_color="#3498db", corner_radius=12)
         bubble.pack(anchor="e", pady=2)
         
-        CTkLabel(bubble, text=message["text"], 
+        CTkLabel(bubble, text=message, 
                 font=("Arial", 14),
                 text_color="white",
                 wraplength=400, justify="left").pack(padx=15, pady=10)
@@ -129,7 +126,7 @@ def create_message_bubble(parent, message, is_own=False):
         inner_frame.pack(anchor="w")
         
         # Sender name
-        CTkLabel(inner_frame, text=message["sender"], 
+        CTkLabel(inner_frame, text=_username, 
                 font=("Arial", 12, "bold"),
                 text_color="#2c3e50").pack(anchor="w", padx=(10, 0))
         
@@ -137,20 +134,16 @@ def create_message_bubble(parent, message, is_own=False):
         bubble = CTkFrame(inner_frame, fg_color="#e9ecef", corner_radius=12)
         bubble.pack(anchor="w", pady=2)
         
-        CTkLabel(bubble, text=message["text"], 
+        CTkLabel(bubble, text=message, 
                 font=("Arial", 14),
                 text_color="#2c3e50",
                 wraplength=400, justify="left").pack(padx=15, pady=10)
         
         # Time label
-        CTkLabel(inner_frame, text=message["time"], 
+        CTkLabel(inner_frame, text=datetime.now().strftime("%H:%M %p"), 
                 font=("Arial", 10),
                 text_color="#7f8c8d").pack(anchor="w", padx=(10, 0))
 
-# Add sample messages to the chat
-for msg in sample_messages:
-    is_own = msg["sender"] == "Hathim"
-    Thread(target=create_message_bubble,args=(messages_frame, msg, is_own),daemon=True).start()
 
 # Message input area
 input_frame = CTkFrame(chat_frame, fg_color="transparent", height=70)
@@ -174,31 +167,28 @@ def send_message():
         time_str = now.strftime("%H:%M %p")
         
         # Create new message
-        new_message = {
-            "sender": "Hathim",
-            "text": message_text,
-            "time": time_str
-        }
-        
-        # Add to chat
-        create_message_bubble(messages_frame, new_message, True)
+        # new_message = {
+        #     "sender": _username,
+        #     "text": message_text,
+        #     "time": time_str
+        # }
         
         # Clear input
         message_entry.delete(0, END)
         
         # Scroll to bottom
         messages_frame._parent_canvas.yview_moveto(1.0)
+        return str(message_text)
 
-# Send button
 send_button = CTkButton(input_frame, 
-                       text="Send",
-                       command=send_message,
-                       font=("Arial", 14, "bold"),
-                       height=45,
-                       width=100,
-                       fg_color="#3498db",
-                       hover_color="#2980b9",
-                       corner_radius=20)
+                text="Send",
+                command=lambda:_send_message(sock,send_message()),
+                font=("Arial", 14, "bold"),
+                height=45,
+                width=100,
+                fg_color="#3498db",
+                hover_color="#2980b9",
+                corner_radius=20)
 send_button.pack(side="right")
 
 message_entry.bind("<Return>", lambda event: send_message())
@@ -328,6 +318,18 @@ def remove_users(user):
 def _refresh(u_list):
     app.after(100,lambda:refresh_user_cards(u_list))
 
+def _send_message(con,message:str):
+    enc_msg = encrypt(message)
+    header = f'MSG:{_username}:'.encode()
+    con.sendall(header+enc_msg)
+
+def recv_message(message,is_own):
+    try:
+        msg = decrypt(message)
+        Thread(target=create_message_bubble,args=(messages_frame,msg,is_own),daemon=True).start()
+    except Exception as e:
+        print(e)
+
 def start_server():
     try:
         sock.connect(('127.0.0.1',2222))
@@ -340,6 +342,7 @@ def start_server():
                 continue
 
             if get_o_users.startswith('OU:'):
+                global user
                 user = get_o_users.split(':')[1].split(',')
                 #Remove duplicate user for iteration
                 rm_dup_u = add_users(user)
@@ -356,6 +359,13 @@ def start_server():
                 remove_users(lft_user)
                 sock.close()
 
+            if get_o_users.startswith('MSG:'):
+                getuser = get_o_users.split(':')[1].strip()
+                getmessage = get_o_users.split(':')[2].strip()
+                is_own = _username == getuser
+                recv_message(getmessage,is_own)
+                # create_message_bubble(messages_frame,getmessage,is_own)
+
     except ConnectionRefusedError:
         showerror(title=app_name,message='Now the server get down, try again later')
     except ConnectionResetError:
@@ -365,5 +375,6 @@ def start_server():
         print(e)
 
 Thread(target=start_server,daemon=True).start()
+# Thread(target=recv_message,args=(sock,),daemon=True).start()
 app.protocol('WM_DELETE_WINDOW',on_close)
 app.mainloop()

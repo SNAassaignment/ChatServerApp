@@ -1,3 +1,4 @@
-a = 'mohamed'
+from customenc import encrypt
 
-print(a[::2])
+a=encrypt('podu')
+print(b'sss'+a)
