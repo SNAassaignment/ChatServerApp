@@ -3,8 +3,8 @@ from socket import *
 from threading import Thread
 from tkinter.messagebox import showerror
 from time import time
-from inspect import currentframe
 from customenc import *
+from json import load
 
 app = CTk()
 app.title("Admin Panel")
@@ -14,8 +14,14 @@ blocked = set()
 users = dict()
 identity = set()
 logs = []
-ADMIN_USER = ""
-ADMIN_PASS = ""
+
+def getadmininfo() -> tuple:
+    with open('credentials.json','r') as credfile:
+        creds = load(credfile)
+        credfile.close()
+    return (creds['ADMIN_USERNAME'],creds['ADMIN_PASSWORD'])
+
+ADMIN_USER,ADMIN_PASS = getadmininfo()
 
 sock = socket(AF_INET,SOCK_STREAM)
 sock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
@@ -28,7 +34,7 @@ def update_users():
         try:
             con.sendall(f'OU:{all_users}'.encode())
         except Exception as e:
-            print(e,f'line number:{currentframe().f_lineno}')
+            print(e)
 
 def remove_user(user,con,block=False):
     try:
@@ -36,7 +42,7 @@ def remove_user(user,con,block=False):
         for _user in list(users.keys()): list(users.keys()).remove(user) if user == _user else None
         blocked.remove(user) if block else None
     except Exception as e:
-        print(e,f'line number:{currentframe().f_lineno}')
+        print(e)
 
 def broadcast_message(con,msg):
     for cons in identity:
@@ -66,7 +72,7 @@ def check_new_user(user,con,addr):
             users.update({user:[user,addr[1]]})
 
     except Exception as e:
-        print(e,f'line number:{currentframe().f_lineno}')
+        print(e)
 
 def server(con,addr):
     try:
@@ -107,7 +113,7 @@ def server(con,addr):
         pass
 
     except Exception as e:
-        print(e,f'line number:{currentframe().f_lineno}')
+        print(e)
 
 login_frame = CTkFrame(app, corner_radius=20, width=400, height=300, fg_color="#2e2e2e")
 login_frame.place(relx=0.5, rely=0.5, anchor="center")
